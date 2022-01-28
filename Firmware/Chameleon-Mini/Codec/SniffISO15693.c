@@ -404,10 +404,10 @@ INLINE void CardSniffInit(void) {
      * channel 0 (the only one that can be connecte to the DAC) to recognize carrier pulses modulated by
      * the VICC against the correct threshold coming from the DAC.
      */
-    ACA.AC0MUXCTRL = AC_MUXPOS_DAC_gc | AC_MUXNEG_PIN7_gc; /* Tigger when DAC signal is above PORTA Pin 7 (DEMOD/2.3C) */
+    ACA.AC0MUXCTRL = AC_MUXPOS_PIN2_gc | AC_MUXNEG_PIN7_gc; /* Tigger when DAC signal is above PORTA Pin 7 (DEMOD/2.3C) */
     /* enable AC | high speed mode | large hysteresis | sample on rising edge | high level interrupts */
     /* Hysteresis is not actually needed, but appeared to be working and sounds like it might be more robust */
-    ACA.AC0CTRL = AC_ENABLE_bm | AC_HSMODE_bm | AC_HYSMODE_LARGE_gc | AC_INTMODE_RISING_gc | AC_INTLVL_HI_gc;
+    ACA.AC0CTRL = AC_ENABLE_bm | AC_HSMODE_bm | AC_HYSMODE_LARGE_gc | AC_INTMODE_FALLING_gc | AC_INTLVL_HI_gc;
 
     /* This function ends ~100 us after last VCD pulse */
 }
@@ -447,6 +447,9 @@ void CardSniffDeinit(void) {
  * If we did not receive a SOC but, indeed, noise, this interrupt will be enabled again.
  */
 ISR_SHARED isr_SNIFF_ISO15693_ACA_AC0_VECT(void) {
+    PORTE.OUTTGL = PIN0_bm; // TODO_sniff remove this testing code
+    PORTE.OUTTGL = PIN0_bm; // TODO_sniff remove this testing code
+
     CODEC_TIMER_LOADMOD.INTCTRLB = TC_CCAINTLVL_HI_gc; /* Enable level 0 CCA interrupt to filter spurious pulses and find SOC */
 
     ACA.AC0CTRL = AC_ENABLE_bm | AC_HSMODE_bm | AC_HYSMODE_LARGE_gc | AC_INTMODE_RISING_gc | AC_INTLVL_OFF_gc; /* Disable this interrupt */
@@ -477,6 +480,13 @@ ISR_SHARED isr_SNIFF_ISO15693_CODEC_TIMER_TIMESTAMPS_CCA_VECT(void) {
  * we should have a relevant number of pulses
  */
 ISR_SHARED isr_SNIFF_ISO15693_CODEC_TIMER_LOADMOD_CCA_VECT(void) {
+    PORTE.OUTTGL = PIN0_bm; // TODO_sniff remove this testing code
+    PORTE.OUTTGL = PIN0_bm; // TODO_sniff remove this testing code
+
+    // char tmpBuf[10] = "";
+    // snprintf(tmpBuf, 10, "CNT %d\n", CODEC_TIMER_TIMESTAMPS.CNT);
+    // LogEntry(LOG_INFO_GENERIC, tmpBuf, 10);
+
     if (CODEC_TIMER_TIMESTAMPS.CNT < 15) {
         /* We most likely received garbage */
 
@@ -516,11 +526,13 @@ ISR_SHARED isr_SNIFF_ISO15693_CODEC_TIMER_LOADMOD_CCA_VECT(void) {
  * This interrupt is called on the first half-bit
  */
 ISR(CODEC_TIMER_LOADMOD_CCC_VECT) {
+    PORTE.OUTTGL = PIN0_bm; // TODO_sniff remove this testing code
+    PORTE.OUTTGL = PIN0_bm; // TODO_sniff remove this testing code
     /**
      * This interrupt is called on every odd half-bit, thus we don't need to do any check,
      * just append to the sample register.
      */
-    SampleRegister = (SampleRegister << 1) | (CODEC_TIMER_TIMESTAMPS.CNT > 4); /* Using 4 as a discriminating factor to allow for slight errors in pulses counting. */
+    SampleRegister = (SampleRegister << 1) | (CODEC_TIMER_TIMESTAMPS.CNT > 2); /* Using 2 as a discriminating factor to allow for slight errors in pulses counting. */
     /* Don't increase BitSampleCount, since this is only the first half of a bit */
 
     CODEC_TIMER_TIMESTAMPS.CNT = 0; /* Clear count register for next half-bit */
@@ -542,11 +554,17 @@ ISR(CODEC_TIMER_SAMPLING_OVF_VECT) {
  * It replaces isr_SNIFF_ISO15693_CODEC_TIMER_LOADMOD_OVF_VECT_timeout once the SOF is received
  */
 ISR_SHARED isr_SNIFF_ISO15693_CODEC_TIMER_LOADMOD_OVF_VECT(void) {
+    PORTE.OUTTGL = PIN0_bm; // TODO_sniff remove this testing code
+    PORTE.OUTTGL = PIN0_bm; // TODO_sniff remove this testing code
     /**
      * This interrupt is called on every even half-bit, we then need to check the content of the register
      */
-    SampleRegister = (SampleRegister << 1) | (CODEC_TIMER_TIMESTAMPS.CNT > 4); /* Using 4 as a discriminating factor to allow for slight errors in pulses counting. */
+    SampleRegister = (SampleRegister << 1) | (CODEC_TIMER_TIMESTAMPS.CNT > 2); /* Using 4 as a discriminating factor to allow for slight errors in pulses counting. */
     BitSampleCount++;
+
+    // char tmpBuf[10] = "";
+    // snprintf(tmpBuf, 10, "CNT: %x\n", CODEC_TIMER_TIMESTAMPS.CNT);
+    // LogEntry(LOG_INFO_GENERIC, tmpBuf, 10);
     CODEC_TIMER_TIMESTAMPS.CNT = 0; /* Clear count register for next half-bit */
 
     // char tmpBuf[10];
@@ -563,6 +581,7 @@ ISR_SHARED isr_SNIFF_ISO15693_CODEC_TIMER_LOADMOD_OVF_VECT(void) {
                     CODEC_TIMER_SAMPLING.INTCTRLA = TC_OVFINTLVL_OFF_gc; /* Disable VICC SOF timeout handler */
                     StateRegister = DEMOD_VICC_DATA;
                 } else {
+    PORTE.OUTTGL = PIN0_bm; // TODO_sniff remove this testing code
                     /* No SOC. The train of pulses was actually garbage. */
 
                     /* Restore DAC output to intial value */
@@ -669,6 +688,10 @@ ISR_SHARED isr_SNIFF_ISO15693_CODEC_TIMER_LOADMOD_OVF_VECT(void) {
 /////////////////////////////////////////////////
 
 void SniffISO15693CodecInit(void) {
+    // TODO_sniff temp code start
+    PORTE.DIR = PIN0_bm;
+    // TODO_sniff temp code end
+
     CodecInitCommon();
 
     /**
