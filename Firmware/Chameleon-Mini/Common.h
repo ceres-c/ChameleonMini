@@ -15,13 +15,18 @@
 #include <avr/pgmspace.h>
 #include <avr/io.h>
 
-#define ODD_PARITY(Value) OddParityBit(Value)//(parity_even_bit(Value) ? 0 : 1)
+#define ODD_PARITY(Value) OddParityBit(Value)
 
+/* This function type has to be used for all the interrupt handlers that have to be changed at runtime: */
 #define ISR_SHARED \
-    void __attribute__((signal)) // This function type has to be used for all the interrupt handlers that have to be changed at runtime
+    void __attribute__((signal))
 
 #define INLINE \
     static inline __attribute__((always_inline))
+
+#ifndef STRINGIFY
+#define STRINGIFY(x) #x
+#endif
 
 #define ARRAY_COUNT(x) \
     (sizeof(x) / sizeof(x[0]))
@@ -35,6 +40,7 @@
 #define SYSTICK_DIFF_100MS(since) (SYSTICK_DIFF(since) / 100)
 
 #define BITS_PER_BYTE 8
+#define ARCH_BIG_ENDIAN
 
 uint16_t BufferToHexString(char *HexOut, uint16_t MaxChars, const void *Buffer, uint16_t ByteCount);
 uint16_t HexStringToBuffer(void *Buffer, uint16_t MaxBytes, const char *HexIn);

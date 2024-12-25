@@ -10,12 +10,13 @@
 #include <avr/interrupt.h>
 
 ; Macro to call ISR functions
+; For development purposes: cycles penality before landing in the Shared ISR is 10
 .macro call_isr isr_address
-push r30
-push r31
-lds r30, \isr_address
-lds r31, \isr_address+1
-icall
+push r30                    ; 1
+push r31                    ; 1
+lds r30, \isr_address       ; 3
+lds r31, \isr_address+1     ; 3
+icall                       ; 2 (16 bit PC)
 pop r31
 pop r30
 reti
@@ -43,6 +44,22 @@ CODEC_DEMOD_IN_INT0_VECT:
 CODEC_TIMER_SAMPLING_CCC_VECT:
     call_isr isr_func_TCD0_CCC_vect
 
+.global CODEC_TIMER_LOADMOD_OVF_VECT
+CODEC_TIMER_LOADMOD_OVF_VECT:
+    call_isr isr_func_CODEC_TIMER_LOADMOD_OVF_VECT
+
+.global CODEC_TIMER_LOADMOD_CCA_VECT
+CODEC_TIMER_LOADMOD_CCA_VECT:
+    call_isr isr_func_CODEC_TIMER_LOADMOD_CCA_VECT
+
 .global CODEC_TIMER_LOADMOD_CCB_VECT
 CODEC_TIMER_LOADMOD_CCB_VECT:
     call_isr isr_func_CODEC_TIMER_LOADMOD_CCB_VECT
+
+.global CODEC_TIMER_TIMESTAMPS_CCA_VECT
+CODEC_TIMER_TIMESTAMPS_CCA_VECT:
+    call_isr isr_func_CODEC_TIMER_TIMESTAMPS_CCA_VECT
+
+.global ACA_AC0_vect
+ACA_AC0_vect:
+    call_isr isr_func_ACA_AC0_vect

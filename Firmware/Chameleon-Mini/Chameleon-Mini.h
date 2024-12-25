@@ -9,6 +9,7 @@
 #include "System.h"
 #include "Memory.h"
 #include "LED.h"
+#include "Pin.h"
 #include "LEDHook.h"
 #include "Terminal/Terminal.h"
 #include "Codec/Codec.h"
@@ -17,6 +18,7 @@
 #include "Random.h"
 #include "Button.h"
 #include "Log.h"
+#include "LiveLogTick.h"
 #include "AntennaLevel.h"
 #include "Settings.h"
 

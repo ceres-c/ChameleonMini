@@ -22,8 +22,14 @@
 #define ANTENNA_LEVEL_NUMERATOR	((uint32_t) (ANTENNA_LEVEL_MILLIVOLT * ANTENNA_LEVEL_FACTOR * ANTENNA_LEVEL_SCALE + .5))
 #define ANTENNA_LEVEL_DENOMINATOR (ANTENNA_LEVEL_SCALE)
 
+#define ANTENNA_LEVEL_LOG_RDRDETECT_INTERVAL     (15)
+extern uint8_t AntennaLevelLogReaderDetectCount;
+
+#define FIELD_MIN_RSSI 500
+
 static inline
 void AntennaLevelInit(void) {
+    ADCA.CAL = (PRODSIGNATURES_ADCACAL1 << 8) | PRODSIGNATURES_ADCACAL0; /* Load calibration data, source: https://www.avrfreaks.net/comment/2080211#comment-2080211 */
     ADCA.CTRLA = ADC_ENABLE_bm;
     ADCA.CTRLB = ADC_RESOLUTION_12BIT_gc;
     ADCA.REFCTRL = ADC_REFSEL_INT1V_gc | ADC_BANDGAP_bm;

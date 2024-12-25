@@ -1,0 +1,33 @@
+>>> Start ISO Authenticate:
+    -> 90 1a 00 00 01 00 00 
+    -- IV       = 00 00 00 00 00 00 00 00 
+    <- ee 91 30 1e e8 f5 84 d6 | c7 85 1d 05 65 13 90 a6 | 91 af 
+    -- IV       = c7 85 1d 05 65 13 90 a6 
+    -- RNDA     = c7 a1 e9 2b fb 59 d9 c1 | 2b 2e 56 45 53 95 d6 1b 
+    -- RNDB     = ca fe ba be 00 11 22 33 | ca fe ba be 00 11 22 33 
+    -- CHAL     = c7 a1 e9 2b fb 59 d9 c1 | 2b 2e 56 45 53 95 d6 1b | fe ba be 00 11 22 33 ca | fe ba be 00 11 22 33 ca 
+    -- ENC-CHAL = 75 ef 28 72 5d 90 b3 7d | 22 17 c7 bb 33 a5 d8 a3 | 40 9d 38 95 a0 d1 95 31 | ad 47 d2 8a 05 57 5c 14 
+    -> 90 af 00 00 20 75 ef 28 | 72 5d 90 b3 7d 22 17 c7 | bb 33 a5 d8 a3 40 9d 38 | 95 a0 d1 95 31 ad 47 d2 | 8a 05 57 5c 14 00 
+    -- IV       = ad 47 d2 8a 05 57 5c 14 
+    <- 33 d7 90 a7 59 21 c0 74 | 23 c4 ed 08 9b fb e2 b6 | 91 00 9d 38 
+    -- IV       = 23 c4 ed 08 9b fb e2 b6 
+       ... AUTH OK! :)
+
+>>> CreateApplication command:
+    -> 90 ca 00 00 05 77 88 99 | 0f 01 00 
+    <- 91 00 
+>>> GetApplicationIds command:
+    -> 90 6a 00 00 00 00 
+    <- 77 88 99 91 00 
+
+>>> CreateApplication command:
+    -> 90 ca 00 00 05 01 00 34 | 0f 02 00 
+    <- 91 00 
+>>> GetApplicationIds command:
+    -> 90 6a 00 00 00 00 
+    <- 77 88 99 01 00 34 91 00 
+
+>>> GetApplicationIds command:
+    -> 90 6a 00 00 00 00 
+    <- 77 88 99 01 00 34 91 00 
+

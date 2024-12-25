@@ -1,6 +1,6 @@
 /*
  * ICODE-SLIL.c
- *
+ * 
  *  Created on: 27.12.2019
  *      Author: ceres-c & fptrs
  * 
@@ -10,7 +10,7 @@
  *  - Long range commands (if possible)
  *  - Compile time switch for nonrandom get-random response
  *  - Compile time switch for Tonies (privacy mode enabled by default)?
- *
+ * 
  * NOTES:
  *  - To emulate Tonies, set State as STATE_PRIV in ICODEAppInit and ICODEAppReset
  */
@@ -513,7 +513,7 @@ uint16_t ICODE_Login(uint8_t *FrameBuf, uint16_t FrameBytes) {
 
     MemoryReadBlock(&Password, EM4233_MEM_PSW_ADDRESS, 4);
 
-#ifdef EM4233_LOGIN_YES_CARD
+#ifdef ICODE_LOGIN_YES_CARD
     /* Accept any password from reader as correct one */
     SLILLoggedIn = true;
 

@@ -1,4 +1,7 @@
+#if defined(CONFIG_ISO14443A_READER_SUPPORT) || defined(CONFIG_ISO14443A_SNIFF_SUPPORT)
+
 #include "Reader14443A.h"
+#include "LEDHook.h"
 #include "Application.h"
 #include "ISO14443-3A.h"
 #include "../Codec/Reader14443-2A.h"
@@ -95,8 +98,8 @@ static const CardIdentificationType PROGMEM CardIdentificationList[] = {
     [CardType_NXP_MIFARE_Classic_1k] 		= { .ATQA = 0x0004, .ATQARelevant = true, .SAK = 0x08, .SAKRelevant = true, .ATSRelevant = false, .Manufacturer = "NXP", .Type = "MIFARE Classic 1k" },
     [CardType_NXP_MIFARE_Classic_4k] 		= { .ATQA = 0x0002, .ATQARelevant = true, .SAK = 0x18, .SAKRelevant = true, .ATSRelevant = false, .Manufacturer = "NXP", .Type = "MIFARE Classic 4k" },
     [CardType_NXP_MIFARE_Ultralight]        = { .ATQA = 0x0044, .ATQARelevant = true, .SAK = 0x00, .SAKRelevant = true, .ATSRelevant = false, .Manufacturer = "NXP", .Type = "MIFARE Ultralight" },
-//        [CardType_NXP_MIFARE_Ultralight_C]      = { .ATQA=0x0044, .ATQARelevant=true, .SAK=0x00, .SAKRelevant=true, .ATSRelevant=false, .Manufacturer="NXP", .Type="MIFARE Ultralight C" },
-//        [CardType_NXP_MIFARE_Ultralight_EV1]    = { .ATQA=0x0044, .ATQARelevant=true, .SAK=0x00, .SAKRelevant=false, .ATSRelevant=false, .Manufacturer="NXP", .Type="MIFARE Ultralight EV1" },
+    //[CardType_NXP_MIFARE_Ultralight_C]      = { .ATQA=0x0044, .ATQARelevant=true, .SAK=0x00, .SAKRelevant=true, .ATSRelevant=false, .Manufacturer="NXP", .Type="MIFARE Ultralight C" },
+    //[CardType_NXP_MIFARE_Ultralight_EV1]    = { .ATQA=0x0044, .ATQARelevant=true, .SAK=0x00, .SAKRelevant=false, .ATSRelevant=false, .Manufacturer="NXP", .Type="MIFARE Ultralight EV1" },
     // for the following two, setting ATSRelevant to true would cause checking the ATS value, but the NXP paper for distinguishing cards does not recommend this
     [CardType_NXP_MIFARE_DESFire] 			= { .ATQA = 0x0344, .ATQARelevant = true, .SAK = 0x20, .SAKRelevant = true, .ATSRelevant = false, .ATSSize = 5, .ATS = {0x75, 0x77, 0x81, 0x02, 0x80}, .Manufacturer = "NXP", .Type = "MIFARE DESFire" },
     [CardType_NXP_MIFARE_DESFire_EV1] 		= { .ATQA = 0x0344, .ATQARelevant = true, .SAK = 0x20, .SAKRelevant = true, .ATSRelevant = false, .ATSSize = 5, .ATS = {0x75, 0x77, 0x81, 0x02, 0x80}, .Manufacturer = "NXP", .Type = "MIFARE DESFire EV1" },
@@ -739,7 +742,7 @@ uint16_t Reader14443AAppProcess(uint8_t *Buffer, uint16_t BitCount) {
                         CodecReaderFieldStop();
                         MemoryUploadBlock(&MFUContents, 0, 64);
                         CommandLinePendingTaskFinished(COMMAND_INFO_OK_WITH_TEXT_ID, "Card Cloned to Slot");
-                        ConfigurationSetById(CONFIG_MF_ULTRALIGHT);
+                        ConfigurationSetById(CONFIG_MF_ULTRALIGHT, false);
                         MemoryStore();
                         SettingsSave();
                     }
@@ -810,7 +813,9 @@ uint16_t Reader14443AAppProcess(uint8_t *Buffer, uint16_t BitCount) {
                 return BitCount;
             }
         }
-
+        /****************************************
+         * This function do simple cloning UID. *
+         ****************************************/
         case Reader14443_Identify_Clone: {
             if (Identify(Buffer, &BitCount)) {
                 if (CardCandidatesIdx == 1) {
@@ -821,6 +826,13 @@ uint16_t Reader14443AAppProcess(uint8_t *Buffer, uint16_t BitCount) {
                             cfgid = CONFIG_MF_ULTRALIGHT;
 #endif
                             // TODO: enter MFU clone mdoe
+                            break;
+                        }
+                        case CardType_NXP_MIFARE_DESFire_EV1: {
+#ifdef CONFIG_MF_ULTRALIGHT_SUPPORT
+                            cfgid = CONFIG_MF_ULTRALIGHT;
+#endif
+                            // Only set UL for DESFire_EV1 and read UID for some small tests - simple UID cloning
                             break;
                         }
                         case CardType_NXP_MIFARE_Classic_1k:
@@ -854,9 +866,11 @@ uint16_t Reader14443AAppProcess(uint8_t *Buffer, uint16_t BitCount) {
                             cfgid = -1;
                     }
 
-                    if (cfgid > -1) {
+                    if (cfgid > -1) { /* TODO: Consider wrapping strings with PSTR(...): */
                         CommandLinePendingTaskFinished(COMMAND_INFO_OK_WITH_TEXT_ID, "Cloned OK!");
-                        ConfigurationSetById(cfgid);
+                        /* Notify LED. blink when clone is done - ToDo: maybe use other LEDHook */
+                        LEDHook(LED_SETTING_CHANGE, LED_BLINK_2X);
+                        ConfigurationSetById(cfgid, false);
                         ApplicationReset();
                         ApplicationSetUid(CardCharacteristics.UID);
                         MemoryStore();
@@ -895,3 +909,5 @@ uint16_t ISO14443_CRCA(uint8_t *Buffer, uint8_t ByteCount) {
     }
     return crc;
 }
+
+#endif

@@ -33,6 +33,7 @@ void TITagitstandardAppInit(void) {
     FrameInfo.Selected      = false;
 
     MemoryReadBlock(&MyAFI, TITAGIT_MEM_AFI_ADDRESS, 1);
+    TITagitstandardGetUid(Uid);
 }
 
 void TITagitstandardAppReset(void) {
@@ -44,6 +45,9 @@ void TITagitstandardAppReset(void) {
     FrameInfo.ParamLen      = 0;
     FrameInfo.Addressed     = false;
     FrameInfo.Selected      = false;
+
+    MemoryReadBlock(&MyAFI, TITAGIT_MEM_AFI_ADDRESS, 1);
+    TITagitstandardGetUid(Uid);
 }
 
 
@@ -56,9 +60,7 @@ void TITagitstandardAppTick(void) {
 }
 
 uint16_t TITagitstandardAppProcess(uint8_t *FrameBuf, uint16_t FrameBytes) {
-    uint16_t ResponseByteCount = ISO15693_APP_NO_RESPONSE;
-    uint8_t Uid[ActiveConfiguration.UidSize];
-    TITagitstandardGetUid(Uid);
+    ResponseByteCount = ISO15693_APP_NO_RESPONSE;
 
     if ((FrameBytes < ISO15693_MIN_FRAME_SIZE) || !ISO15693CheckCRC(FrameBuf, FrameBytes - ISO15693_CRC16_SIZE))
         /* malformed frame */
@@ -196,12 +198,6 @@ uint16_t TITagitstandardAppProcess(uint8_t *FrameBuf, uint16_t FrameBytes) {
             break;
     }
 
-    if (ResponseByteCount > 0) {
-        /* There is data to be sent. Append CRC */
-        ISO15693AppendCRC(FrameBuf, ResponseByteCount);
-        ResponseByteCount += ISO15693_CRC16_SIZE;
-    }
-
     return ResponseByteCount;
 }
 
@@ -212,7 +208,8 @@ void TITagitstandardGetUid(ConfigurationUidType Uid) {
     TITagitstandardFlipUid(Uid);
 }
 
-void TITagitstandardSetUid(ConfigurationUidType Uid) {
+void TITagitstandardSetUid(ConfigurationUidType NewUid) {
+    memcpy(Uid, NewUid, ActiveConfiguration.UidSize); // Update the local variable
     // Reverse UID before writing it
     TITagitstandardFlipUid(Uid);
 

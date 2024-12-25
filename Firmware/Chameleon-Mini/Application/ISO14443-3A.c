@@ -1,19 +1,64 @@
 /*
- * ISO14443A.c
+ *  ISO14443A.c
  *
  *  Created on: 19.03.2013
- *      Author: skuser
+ *  Author: skuser
  */
 
 #include "ISO14443-3A.h"
 
-#define CRC_INIT		0x6363
-#define CRC_INIT_R		0xC6C6 /* Bit reversed */
+#ifdef CONFIG_MF_DESFIRE_SUPPORT
+#include "DESFire/DESFireISO14443Support.h"
+
+bool ISO14443ASelectDesfire(void *Buffer, uint16_t *BitCount, uint8_t *UidCL, uint8_t UidByteCount, uint8_t SAKValue) {
+    if (BitCount == NULL || ASBYTES(*BitCount) < 2) {
+        *BitCount = 0;
+        return false;
+    }
+    uint8_t *DataPtr = (uint8_t *) Buffer;
+    uint8_t NVB = DataPtr[1];
+    /* According to the NXP Application Note AN10833, bit 6 of the SAK
+     * (mask of 0x20) indicates whether the PICC is compliant with the
+     * ISO/IEC14443-4 standard. The Mifare DESFire tags set this bit to one.
+     * Reference (section 2.2, page 7):
+     * https://www.nxp.com/docs/en/application-note/AN10833.pdf
+     */
+    SAKValue = MAKE_ISO14443A_4_COMPLIANT(SAKValue);
+    switch (NVB) {
+        case ISO14443A_NVB_AC_START:
+            /* Start of anticollision procedure.
+             * Send whole UID CLn + BCC
+             */
+            memcpy(&DataPtr[0], &UidCL[0], UidByteCount);
+            DataPtr[ISO14443A_CL_BCC_OFFSET] = ISO14443A_CALC_BCC(DataPtr);
+            *BitCount = ISO14443A_CL_FRAME_SIZE;
+            return true;
+        case ISO14443A_NVB_AC_END:
+            /* End of anticollision procedure.
+             * Send SAK CLn if we are selected.
+             */
+            if (!memcmp(&DataPtr[2], &UidCL[0], UidByteCount)) {
+                DataPtr[0] = SAKValue;
+                ISO14443AAppendCRCA(Buffer, 1);
+                *BitCount = ISO14443A_SAK_FRAME_SIZE;
+                return true;
+            } else {
+                /* We have not been selected. Don't send anything. */
+                *BitCount = 0;
+                return false;
+            }
+        default:
+            break;
+    }
+    /* No anticollision supported */
+    *BitCount = 0;
+    return false;
+}
+#endif /* CONFIG_MF_DESFIRE_SUPPORT */
 
 #define USE_HW_CRC
-
 #ifdef USE_HW_CRC
-void ISO14443AAppendCRCA(void *Buffer, uint16_t ByteCount) {
+uint16_t ISO14443AAppendCRCA(void *Buffer, uint16_t ByteCount) {
     uint8_t *DataPtr = (uint8_t *) Buffer;
 
     CRC.CTRL = CRC_RESET0_bm;
@@ -32,10 +77,12 @@ void ISO14443AAppendCRCA(void *Buffer, uint16_t ByteCount) {
     DataPtr[1] = BitReverseByte(CRC.CHECKSUM0);
 
     CRC.CTRL = CRC_SOURCE_DISABLE_gc;
+
+    return (uint16_t)(((DataPtr[0] << 8) & 0x00FF00) | (DataPtr[1] & 0x00FF));
 }
 #else
 #include <util/crc16.h>
-void ISO14443AAppendCRCA(void *Buffer, uint16_t ByteCount) {
+uint16_t ISO14443AAppendCRCA(void *Buffer, uint16_t ByteCount) {
     uint16_t Checksum = CRC_INIT;
     uint8_t *DataPtr = (uint8_t *) Buffer;
 
@@ -46,6 +93,8 @@ void ISO14443AAppendCRCA(void *Buffer, uint16_t ByteCount) {
 
     DataPtr[0] = (Checksum >> 0) & 0x00FF;
     DataPtr[1] = (Checksum >> 8) & 0x00FF;
+
+    return Checksum;
 }
 #endif
 
@@ -85,68 +134,4 @@ bool ISO14443ACheckCRCA(const void *Buffer, uint16_t ByteCount) {
 
     return (DataPtr[0] == ((Checksum >> 0) & 0xFF)) && (DataPtr[1] == ((Checksum >> 8) & 0xFF));
 }
-#endif
-
-#if 0
-bool ISO14443ASelect(void *Buffer, uint16_t *BitCount, uint8_t *UidCL, uint8_t SAKValue) {
-    uint8_t *DataPtr = (uint8_t *) Buffer;
-    uint8_t NVB = DataPtr[1];
-    //uint8_t CollisionByteCount = (NVB >> 4) & 0x0F;
-    //uint8_t CollisionBitCount =  (NVB >> 0) & 0x0F;
-
-    switch (NVB) {
-        case ISO14443A_NVB_AC_START:
-            /* Start of anticollision procedure.
-            * Send whole UID CLn + BCC */
-            DataPtr[0] = UidCL[0];
-            DataPtr[1] = UidCL[1];
-            DataPtr[2] = UidCL[2];
-            DataPtr[3] = UidCL[3];
-            DataPtr[4] = ISO14443A_CALC_BCC(DataPtr);
-
-            *BitCount = ISO14443A_CL_FRAME_SIZE;
-
-            return false;
-
-        case ISO14443A_NVB_AC_END:
-            /* End of anticollision procedure.
-            * Send SAK CLn if we are selected. */
-            if ((DataPtr[2] == UidCL[0]) &&
-                    (DataPtr[3] == UidCL[1]) &&
-                    (DataPtr[4] == UidCL[2]) &&
-                    (DataPtr[5] == UidCL[3])) {
-
-                DataPtr[0] = SAKValue;
-                ISO14443AAppendCRCA(Buffer, 1);
-
-                *BitCount = ISO14443A_SAK_FRAME_SIZE;
-                return true;
-            } else {
-                /* We have not been selected. Don't send anything. */
-                *BitCount = 0;
-                return false;
-            }
-        default:
-            /* TODO: No anticollision supported */
-            *BitCount = 0;
-            return false;
-    }
-}
-
-bool ISO14443AWakeUp(void *Buffer, uint16_t *BitCount, uint16_t ATQAValue, bool FromHalt) {
-    uint8_t *DataPtr = (uint8_t *) Buffer;
-
-    if (((! FromHalt) && (DataPtr[0] == ISO14443A_CMD_REQA)) ||
-            (DataPtr[0] == ISO14443A_CMD_WUPA)) {
-        DataPtr[0] = (ATQAValue >> 0) & 0x00FF;
-        DataPtr[1] = (ATQAValue >> 8) & 0x00FF;
-
-        *BitCount = ISO14443A_ATQA_FRAME_SIZE;
-
-        return true;
-    } else {
-        return false;
-    }
-}
-
 #endif

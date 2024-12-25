@@ -11,6 +11,7 @@
 #include "Application.h"
 
 /*****************************
+ * TODO remove this
  * E004035010963A52 - clown
  * E00403500fc94a29 - gorilla
  * E004035011b9b7a8 - tales
@@ -65,12 +66,12 @@
 #define ICODE_CMD_FAST_INV_PAGE_READ    0xB1 // TODO
 
 /* Compile time switch */
-/* EM4233_LOGIN_YES_CARD has to be uncommented if you want your emulated card
+/* ICODE_LOGIN_YES_CARD has to be uncommented if you want your emulated card
  * to accept any given password from the reader when a Login request (E4) is issued.
  * It is expecially useful when analyzing an unknown system and you want to fool a reader
  * into thiking you are using the original tag without actually knowing the password.
  */
-#define EM4233_LOGIN_YES_CARD
+// #define ICODE_LOGIN_YES_CARD
 
 void ICODEAppInit(void);
 void ICODEAppReset(void);

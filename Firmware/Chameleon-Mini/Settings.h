@@ -13,6 +13,11 @@
 #include "Log.h"
 #include "LED.h"
 #include "Memory.h"
+
+#ifdef CONFIG_MF_DESFIRE_SUPPORT
+#include "Application/DESFire/DESFirePICCHeaderLayout.h"
+#endif
+
 #include <avr/eeprom.h>
 
 #define SETTINGS_COUNT		(MEMORY_SIZE / MEMORY_SIZE_PER_SETTING)
@@ -25,12 +30,15 @@
  */
 typedef struct {
     ButtonActionEnum ButtonActions[BUTTON_TYPE_COUNT]; /// Button actions for this setting.
-    LogModeEnum LogMode; /// Log mode for this setting.
-    ConfigurationEnum Configuration; /// Active configuration for this setting.
-    LEDHookEnum LEDRedFunction; /// Red LED function for this setting.
-    LEDHookEnum LEDGreenFunction; /// Green LED function for this setting.
-    uint16_t PendingTaskTimeout; /// Timeout for timeout commands for this setting, in multiples of 100 ms.
-    uint16_t ReaderThreshold; /// Reader threshold
+    LogModeEnum LogMode;                               /// Log mode for this setting.
+    ConfigurationEnum Configuration;                   /// Active configuration for this setting.
+    LEDHookEnum LEDRedFunction;                        /// Red LED function for this setting.
+    LEDHookEnum LEDGreenFunction;                      /// Green LED function for this setting.
+    uint16_t PendingTaskTimeout;                       /// Timeout for timeout commands for this setting, in multiples of 100 ms.
+    uint16_t ReaderThreshold;                          /// Reader threshold
+#ifdef CONFIG_MF_DESFIRE_SUPPORT
+    DESFirePICCInfoType PiccHeaderData;                /// Header data for the DESFire tag
+#endif
 } SettingsEntryType;
 
 typedef struct {
@@ -56,7 +64,6 @@ INLINE void SettingUpdate(const void *addr, uint16_t size) {
         default:
             eeprom_update_block((uint8_t *)addr, (uint8_t *)EEAddr, size);
     }
-
 #endif
 }
 

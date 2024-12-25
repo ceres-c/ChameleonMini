@@ -19,13 +19,24 @@
 #include "Vicinity.h"
 #include "Sl2s2002.h"
 #include "TITagitstandard.h"
+#include "TITagitplus.h"
 #include "Sniff14443A.h"
+#include "NTAG215.h"
 #include "EM4233.h"
 #include "ICODE-SLIL.h"
+#include "Sniff15693.h"
 
 /* Function wrappers */
 INLINE void ApplicationInit(void) {
     ActiveConfiguration.ApplicationInitFunc();
+}
+
+INLINE void ApplicationInitRunOnce(void) {
+    if (ActiveConfiguration.ApplicationInitRunOnceFunc != NULL) {
+        ActiveConfiguration.ApplicationInitRunOnceFunc();
+    } else {
+        ActiveConfiguration.ApplicationInitFunc();
+    }
 }
 
 INLINE void ApplicationTask(void) {
@@ -42,7 +53,6 @@ INLINE uint16_t ApplicationProcess(uint8_t *ByteBuffer, uint16_t ByteCount) {
 
 INLINE void ApplicationReset(void) {
     ActiveConfiguration.ApplicationResetFunc();
-    //LogEntry(LOG_INFO_RESET_APP, NULL, 0);
 }
 
 INLINE void ApplicationGetUid(ConfigurationUidType Uid) {

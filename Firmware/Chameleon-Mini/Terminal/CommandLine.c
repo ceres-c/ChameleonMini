@@ -12,7 +12,7 @@
 #define CHAR_GET_MODE   		'?'     /* <Command>? */
 #define CHAR_SET_MODE   		'='     /* <Command>=<Param> */
 #define CHAR_EXEC_MODE  		'\0'    /* <Command> */
-#define CHAR_EXEC_MODE_PARAM 	' '		/* <Command> <Param> ... <ParamN> */
+#define CHAR_EXEC_MODE_PARAM 	' '	   /* <Command> <Param> ... <ParamN> */
 
 #define IS_COMMAND_DELIMITER(c) ( \
   ((c) == CHAR_EXEC_MODE) || ((c) == CHAR_GET_MODE) || ((c) == CHAR_SET_MODE) || ((c) == CHAR_EXEC_MODE_PARAM) \
@@ -34,7 +34,7 @@
 #define NO_FUNCTION    ((void*) 0)
 
 #define STATUS_MESSAGE_TRAILER    "\r\n"
-#define OPTIONAL_ANSWER_TRAILER    "\r\n"
+#define OPTIONAL_ANSWER_TRAILER   "\r\n"
 
 /* Include all command functions */
 #include "Commands.h"
@@ -156,6 +156,13 @@ const PROGMEM CommandEntryType CommandTable[] = {
         .GetFunc    = CommandGetLedRed
     },
     {
+        .Command    = COMMAND_PIN,
+        .ExecFunc   = NO_FUNCTION,
+        .ExecParamFunc = NO_FUNCTION,
+        .SetFunc    = CommandSetPin,
+        .GetFunc    = CommandGetPin
+    },
+    {
         .Command    = COMMAND_LOGMODE,
         .ExecFunc   = NO_FUNCTION,
         .ExecParamFunc = NO_FUNCTION,
@@ -246,6 +253,7 @@ const PROGMEM CommandEntryType CommandTable[] = {
         .SetFunc 	= NO_FUNCTION,
         .GetFunc 	= CommandGetSysTick
     },
+#ifdef CONFIG_ISO14443A_READER_SUPPORT
     {
         .Command	= COMMAND_SEND_RAW,
         .ExecFunc 	= NO_FUNCTION,
@@ -288,6 +296,7 @@ const PROGMEM CommandEntryType CommandTable[] = {
         .SetFunc 	= NO_FUNCTION,
         .GetFunc 	= NO_FUNCTION
     },
+#endif
     {
         .Command	= COMMAND_TIMEOUT,
         .ExecFunc 	= NO_FUNCTION,
@@ -316,6 +325,7 @@ const PROGMEM CommandEntryType CommandTable[] = {
         .SetFunc    = CommandSetField,
         .GetFunc    = CommandGetField
     },
+#ifdef CONFIG_ISO14443A_READER_SUPPORT
     {
         .Command        = COMMAND_CLONE,
         .ExecFunc       = CommandExecClone,
@@ -323,6 +333,22 @@ const PROGMEM CommandEntryType CommandTable[] = {
         .SetFunc        = NO_FUNCTION,
         .GetFunc        = NO_FUNCTION
     },
+#endif
+#ifdef CONFIG_ISO15693_SNIFF_SUPPORT
+    {
+        .Command        = COMMAND_AUTOTHRESHOLD,
+        .ExecFunc       = NO_FUNCTION,
+        .ExecParamFunc  = NO_FUNCTION,
+        .SetFunc        = CommandSetAutoThreshold,
+        .GetFunc        = CommandGetAutoThreshold
+    },
+#endif
+#ifdef ENABLE_RUNTESTS_TERMINAL_COMMAND
+#include "../Tests/ChameleonTerminalInclude.c"
+#endif
+#if defined(CONFIG_MF_DESFIRE_SUPPORT) && !defined(DISABLE_DESFIRE_TERMINAL_COMMANDS)
+#include "../Application/DESFire/DESFireChameleonTerminalInclude.c"
+#endif
     {
         /* This has to be last element */
         .Command    = COMMAND_LIST_END,
@@ -353,7 +379,7 @@ static const CommandStatusType PROGMEM StatusTable[] = {
     STATUS_TABLE_ENTRY(COMMAND_ERR_TIMEOUT_ID, COMMAND_ERR_TIMEOUT),
 };
 
-static uint16_t BufferIdx;
+uint16_t TerminalBufferIdx = 0;
 
 void (*CommandLinePendingTaskTimeout)(void) = NO_FUNCTION;  // gets called on Timeout
 static bool TaskPending = false;
@@ -465,11 +491,20 @@ static void DecodeCommand(void) {
         /* Send optional answer */
         TerminalSendString(pTerminalBuffer);
         TerminalSendStringP(PSTR(OPTIONAL_ANSWER_TRAILER));
+        if (StringLength(pTerminalBuffer, TERMINAL_BUFFER_SIZE) + 1 >= TERMINAL_BUFFER_SIZE) {
+            /*
+             * Notify the user that the command line output is truncated. This can come up in the
+             * 'CONFIG=MF_DESFIRE' variants where the Makefile setting 'MEMORY_LIMITED_TESTING' is
+             * enabled by default to save space for other necessary components.
+             */
+            TerminalSendStringP(PSTR("--TRUNCATED OUTPUT--"));
+            TerminalSendStringP(PSTR(OPTIONAL_ANSWER_TRAILER));
+        }
     }
 }
 
 void CommandLineInit(void) {
-    BufferIdx = 0;
+    TerminalBufferIdx = 0;
 }
 
 bool CommandLineProcessByte(uint8_t Byte) {
@@ -480,24 +515,24 @@ bool CommandLineProcessByte(uint8_t Byte) {
         }
 
         /* Prevent buffer overflow and account for '\0' */
-        if (BufferIdx < TERMINAL_BUFFER_SIZE - 1) {
-            TerminalBuffer[BufferIdx++] = Byte;
+        if (TerminalBufferIdx < TERMINAL_BUFFER_SIZE - 1) {
+            TerminalBuffer[TerminalBufferIdx++] = Byte;
         }
     } else if (Byte == '\r') {
         /* Process on \r. Terminate string and decode. */
-        TerminalBuffer[BufferIdx] = '\0';
-        BufferIdx = 0;
+        TerminalBuffer[TerminalBufferIdx] = '\0';
+        TerminalBufferIdx = 0;
 
         if (!TaskPending)
             DecodeCommand();
     } else if (Byte == '\b') {
         /* Backspace. Delete last character in buffer. */
-        if (BufferIdx > 0) {
-            BufferIdx--;
+        if (TerminalBufferIdx > 0) {
+            TerminalBufferIdx--;
         }
     } else if (Byte == 0x1B) {
         /* Drop buffer on escape */
-        BufferIdx = 0;
+        TerminalBufferIdx = 0;
     } else {
         /* Ignore other chars */
     }

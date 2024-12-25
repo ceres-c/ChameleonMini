@@ -16,6 +16,11 @@
 #include "../Battery.h"
 #include "../Codec/Codec.h"
 #include "../Application/Reader14443A.h"
+#include "../Application/Sniff15693.h"
+
+#ifdef CONFIG_ISO15693_SNIFF_SUPPORT
+#include "../Codec/SniffISO15693.h"
+#endif /*#ifdef CONFIG_ISO15693_SNIFF_SUPPORT*/
 
 extern Reader14443Command Reader14443CurrentCommand;
 extern Sniff14443Command Sniff14443CurrentCommand;
@@ -23,8 +28,11 @@ extern Sniff14443Command Sniff14443CurrentCommand;
 extern const PROGMEM CommandEntryType CommandTable[];
 
 CommandStatusIdType CommandGetVersion(char *OutParam) {
-    snprintf_P(OutParam, TERMINAL_BUFFER_SIZE, PSTR(
-                   "ChameleonMini RevG %S using LUFA %S compiled with AVR-GCC %S. Based on the open-source NFC tool ChameleonMini. https://github.com/emsec/ChameleonMini commit %S"
+    snprintf_P(OutParam, TERMINAL_BUFFER_SIZE,
+               PSTR(
+                   "ChameleonMini RevG %S using LUFA %S compiled with AVR-GCC %S. "
+                   "Based on the open-source NFC tool ChameleonMini. "
+                   "https://github.com/emsec/ChameleonMini commit %S"
                ), PSTR(CHAMELEON_MINI_VERSION_STRING), PSTR(LUFA_VERSION_STRING), PSTR(__VERSION__), PSTR(COMMIT_ID)
               );
 
@@ -41,7 +49,8 @@ CommandStatusIdType CommandSetConfig(char *OutMessage, const char *InParam) {
     if (COMMAND_IS_SUGGEST_STRING(InParam)) {
         ConfigurationGetList(OutMessage, TERMINAL_BUFFER_SIZE);
         return COMMAND_INFO_OK_WITH_TEXT_ID;
-    } else if (ConfigurationSetByName(InParam)) {
+    } else if (ConfigurationByNameIsValid(InParam)) {
+        ConfigurationSetByName(InParam, true);
         SETTING_UPDATE(GlobalSettings.ActiveSettingPtr->Configuration);
         return COMMAND_INFO_OK_ID;
     } else {
@@ -280,6 +289,23 @@ CommandStatusIdType CommandSetLedRed(char *OutMessage, const char *InParam) {
     }
 }
 
+CommandStatusIdType CommandGetPin(char *OutParam) {
+    PinGetFuncByName(OutParam, TERMINAL_BUFFER_SIZE);
+
+    return COMMAND_INFO_OK_WITH_TEXT_ID;
+}
+
+CommandStatusIdType CommandSetPin(char *OutMessage, const char *InParam) {
+    if (COMMAND_IS_SUGGEST_STRING(InParam)) {
+        PinGetFuncList(OutMessage, TERMINAL_BUFFER_SIZE);
+        return COMMAND_INFO_OK_WITH_TEXT_ID;
+    } else if (PinSetFuncByName(InParam)) {
+        return COMMAND_INFO_OK_ID;
+    } else {
+        return COMMAND_ERR_INVALID_PARAM_ID;
+    }
+}
+
 CommandStatusIdType CommandGetLogMode(char *OutParam) {
     /* Get Logmode */
     LogGetModeByName(OutParam, TERMINAL_BUFFER_SIZE);
@@ -398,7 +424,11 @@ CommandStatusIdType CommandGetSysTick(char *OutParam) {
     return COMMAND_INFO_OK_WITH_TEXT_ID;
 }
 
+#ifdef CONFIG_ISO14443A_READER_SUPPORT
 CommandStatusIdType CommandExecParamSend(char *OutMessage, const char *InParams) {
+#ifndef CONFIG_ISO14443A_READER_SUPPORT
+    return COMMAND_ERR_INVALID_USAGE_ID;
+#else
     if (GlobalSettings.ActiveSettingPtr->Configuration != CONFIG_ISO14443A_READER)
         return COMMAND_ERR_INVALID_USAGE_ID;
 
@@ -434,9 +464,13 @@ CommandStatusIdType CommandExecParamSend(char *OutMessage, const char *InParams)
     Reader14443ACodecStart();
 
     return TIMEOUT_COMMAND;
+#endif
 }
 
 CommandStatusIdType CommandExecParamSendRaw(char *OutMessage, const char *InParams) {
+#ifndef CONFIG_ISO14443A_READER_SUPPORT
+    return COMMAND_ERR_INVALID_USAGE_ID;
+#else
     if (GlobalSettings.ActiveSettingPtr->Configuration != CONFIG_ISO14443A_READER)
         return COMMAND_ERR_INVALID_USAGE_ID;
 
@@ -475,9 +509,13 @@ CommandStatusIdType CommandExecParamSendRaw(char *OutMessage, const char *InPara
     Reader14443ACodecStart();
 
     return TIMEOUT_COMMAND;
+#endif
 }
 
 CommandStatusIdType CommandExecDumpMFU(char *OutMessage) {
+#ifndef CONFIG_ISO14443A_READER_SUPPORT
+    return COMMAND_ERR_INVALID_USAGE_ID;
+#else
     if (GlobalSettings.ActiveSettingPtr->Configuration != CONFIG_ISO14443A_READER)
         return COMMAND_ERR_INVALID_USAGE_ID;
     ApplicationReset();
@@ -487,10 +525,14 @@ CommandStatusIdType CommandExecDumpMFU(char *OutMessage) {
     Reader14443ACodecStart();
     CommandLinePendingTaskTimeout = &Reader14443AAppTimeout;
     return TIMEOUT_COMMAND;
+#endif
 }
 
 CommandStatusIdType CommandExecCloneMFU(char *OutMessage) {
-    ConfigurationSetById(CONFIG_ISO14443A_READER);
+#ifndef CONFIG_ISO14443A_READER_SUPPORT
+    return COMMAND_ERR_INVALID_USAGE_ID;
+#else
+    ConfigurationSetById(CONFIG_ISO14443A_READER, false);
     ApplicationReset();
 
     Reader14443CurrentCommand = Reader14443_Clone_MF_Ultralight;
@@ -498,9 +540,13 @@ CommandStatusIdType CommandExecCloneMFU(char *OutMessage) {
     Reader14443ACodecStart();
     CommandLinePendingTaskTimeout = &Reader14443AAppTimeout;
     return TIMEOUT_COMMAND;
+#endif
 }
 
 CommandStatusIdType CommandExecGetUid(char *OutMessage) { // this function is for reading the uid in reader mode
+#ifndef CONFIG_ISO14443A_READER_SUPPORT
+    return COMMAND_ERR_INVALID_USAGE_ID;
+#else
     if (GlobalSettings.ActiveSettingPtr->Configuration != CONFIG_ISO14443A_READER)
         return COMMAND_ERR_INVALID_USAGE_ID;
     ApplicationReset();
@@ -510,9 +556,13 @@ CommandStatusIdType CommandExecGetUid(char *OutMessage) { // this function is fo
     Reader14443ACodecStart();
     CommandLinePendingTaskTimeout = &Reader14443AAppTimeout;
     return TIMEOUT_COMMAND;
+#endif
 }
 
 CommandStatusIdType CommandExecIdentifyCard(char *OutMessage) {
+#ifndef CONFIG_ISO14443A_READER_SUPPORT
+    return COMMAND_ERR_INVALID_USAGE_ID;
+#else
     if (GlobalSettings.ActiveSettingPtr->Configuration != CONFIG_ISO14443A_READER)
         return COMMAND_ERR_INVALID_USAGE_ID;
     ApplicationReset();
@@ -522,7 +572,9 @@ CommandStatusIdType CommandExecIdentifyCard(char *OutMessage) {
     Reader14443ACodecStart();
     CommandLinePendingTaskTimeout = &Reader14443AAppTimeout;
     return TIMEOUT_COMMAND;
+#endif
 }
+#endif
 
 CommandStatusIdType CommandGetTimeout(char *OutParam) {
     snprintf_P(OutParam, TERMINAL_BUFFER_SIZE, PSTR("%u ms"), GlobalSettings.ActiveSettingPtr->PendingTaskTimeout * 100);
@@ -587,6 +639,7 @@ CommandStatusIdType CommandGetField(char *OutMessage) {
 
 
 CommandStatusIdType CommandExecAutocalibrate(char *OutMessage) {
+#ifdef CONFIG_ISO14443A_READER_SUPPORT
     if (GlobalSettings.ActiveSettingPtr->Configuration == CONFIG_ISO14443A_READER) {
         ApplicationReset();
 
@@ -595,21 +648,39 @@ CommandStatusIdType CommandExecAutocalibrate(char *OutMessage) {
         Reader14443ACodecStart();
         CommandLinePendingTaskTimeout = &Reader14443AAppTimeout;
         return TIMEOUT_COMMAND;
-    } else if (GlobalSettings.ActiveSettingPtr->Configuration == CONFIG_ISO14443A_SNIFF) {
+    }
+#endif
+#ifdef CONFIG_ISO14443A_SNIFF_SUPPORT
+    if (GlobalSettings.ActiveSettingPtr->Configuration == CONFIG_ISO14443A_SNIFF) {
         ApplicationReset();
 
         Sniff14443CurrentCommand = Sniff14443_Autocalibrate;
         Sniff14443AAppInit();
         CommandLinePendingTaskTimeout = &Sniff14443AAppTimeout;
         return TIMEOUT_COMMAND;
-    } else {
-        return COMMAND_ERR_INVALID_USAGE_ID;
     }
+#endif
+#ifdef CONFIG_ISO15693_SNIFF_SUPPORT
+    /* Only execute autocalibration if the codec does not use autothreshold */
+    /* It needs to be disabled by the AUTOTHRESHOLD=DISABLE command */
+    if ((GlobalSettings.ActiveSettingPtr->Configuration == CONFIG_ISO15693_SNIFF) &&
+            (SniffISO15693GetAutoThreshold() == false)) {
+        ApplicationReset();
 
+        Sniff15693CurrentCommand = Sniff15693_Autocalibrate;
+        CommandLinePendingTaskTimeout = &SniffISO15693AppTimeout;
+        return TIMEOUT_COMMAND;
+    }
+#endif
+    return COMMAND_ERR_INVALID_USAGE_ID;
 }
 
+#ifdef CONFIG_ISO14443A_READER_SUPPORT
 CommandStatusIdType CommandExecClone(char *OutMessage) {
-    ConfigurationSetById(CONFIG_ISO14443A_READER);
+#ifndef CONFIG_ISO14443A_READER_SUPPORT
+    return COMMAND_ERR_INVALID_USAGE_ID;
+#else
+    ConfigurationSetById(CONFIG_ISO14443A_READER, false);
 
     ApplicationReset();
 
@@ -619,4 +690,49 @@ CommandStatusIdType CommandExecClone(char *OutMessage) {
     CommandLinePendingTaskTimeout = &Reader14443AAppTimeout;
 
     return TIMEOUT_COMMAND;
+#endif
 }
+#endif
+
+#ifdef CONFIG_ISO15693_SNIFF_SUPPORT
+CommandStatusIdType CommandGetAutoThreshold(char *OutParam) {
+
+    /* Only Execute the command if the current configuration is CONFIG_ISO15693_SNIFF */
+    if (GlobalSettings.ActiveSettingPtr->Configuration != CONFIG_ISO15693_SNIFF)
+        return COMMAND_ERR_INVALID_USAGE_ID;
+
+    /* Get Autothreshold mode */
+    if (SniffISO15693GetAutoThreshold())
+        snprintf(OutParam, TERMINAL_BUFFER_SIZE, "%c (enabled)", COMMAND_CHAR_TRUE);
+    else
+        snprintf(OutParam, TERMINAL_BUFFER_SIZE, "%c - (disabled)", COMMAND_CHAR_FALSE);
+    /* In case of overflow, snprintf does not write the terminating '\0' */
+    /* so we should make sure it gets terminated */
+    OutParam[TERMINAL_BUFFER_SIZE - 1] = '\0';
+
+    return COMMAND_INFO_OK_WITH_TEXT_ID;
+}
+
+CommandStatusIdType CommandSetAutoThreshold(char *OutMessage, const char *InParam) {
+
+    /* Only Execute the command if the current configuration is CONFIG_ISO15693_SNIFF */
+    if (GlobalSettings.ActiveSettingPtr->Configuration != CONFIG_ISO15693_SNIFF)
+        return COMMAND_ERR_INVALID_USAGE_ID;
+
+    if (COMMAND_IS_SUGGEST_STRING(InParam)) {
+        snprintf(OutMessage, TERMINAL_BUFFER_SIZE, "%c (enable), %c (disable)", COMMAND_CHAR_TRUE, COMMAND_CHAR_FALSE);
+        /* In case of overflow, snprintf does not write the terminating '\0' */
+        /* so we should make sure it gets terminated */
+        OutMessage[TERMINAL_BUFFER_SIZE - 1] = '\0';
+        return COMMAND_INFO_OK_WITH_TEXT_ID;
+    } else if (InParam[0] == COMMAND_CHAR_TRUE) {
+        SniffISO15693CtrlAutoThreshold(true);
+        return COMMAND_INFO_OK_ID;
+    } else if (InParam[0] == COMMAND_CHAR_FALSE) {
+        SniffISO15693CtrlAutoThreshold(false);
+        return COMMAND_INFO_OK_ID;
+    } else {
+        return COMMAND_ERR_INVALID_PARAM_ID;
+    }
+}
+#endif /*#ifdef CONFIG_ISO15693_SNIFF_SUPPORT*/

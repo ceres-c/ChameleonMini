@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "Map.h"
+
 #define CONFIGURATION_NAME_LENGTH_MAX   32
 #define CONFIGURATION_UID_SIZE_MAX      16
 
@@ -47,6 +49,9 @@ typedef enum  {
 #ifdef CONFIG_ISO14443A_READER_SUPPORT
     CONFIG_ISO14443A_READER,
 #endif
+#ifdef CONFIG_NTAG215_SUPPORT
+    CONFIG_NTAG215,
+#endif
 #ifdef CONFIG_VICINITY_SUPPORT
     CONFIG_VICINITY,
 #endif
@@ -59,11 +64,20 @@ typedef enum  {
 #ifdef CONFIG_TITAGITSTANDARD_SUPPORT
     CONFIG_TITAGITSTANDARD,
 #endif
+#ifdef CONFIG_TITAGITPLUS_SUPPORT
+    CONFIG_TITAGITPLUS,
+#endif
 #ifdef CONFIG_EM4233_SUPPORT
     CONFIG_EM4233,
 #endif
 #ifdef CONFIG_ICODE_SLI_SUPPORT
     CONFIG_ICODE_SLI,
+#endif
+#ifdef CONFIG_MF_DESFIRE_SUPPORT
+    CONFIG_MF_DESFIRE,
+    CONFIG_MF_DESFIRE_2KEV1,
+    CONFIG_MF_DESFIRE_4KEV1,
+    CONFIG_MF_DESFIRE_4KEV2,
 #endif
     /* This HAS to be the last element */
     CONFIG_COUNT
@@ -104,6 +118,12 @@ typedef struct {
      */
     /** Function that initializes the application. */
     void (*ApplicationInitFunc)(void);
+    /** Function to initialize one-time-only data in the application
+     *  (like the filesystem for `CONFIG=MF_DESFIRE`). This function does not
+     *  get called when changing slots to run a preexisting configuration or when the
+     *  device is powered on and reinitializes the last loaded slot.
+     */
+    void (*ApplicationInitRunOnceFunc)(void);
     /** Function that resets the application. */
     void (*ApplicationResetFunc)(void);
     /** Function that is called on every iteration of the main loop. Application work that is independent from the codec layer can be done here. */
@@ -163,9 +183,11 @@ typedef struct {
 extern ConfigurationType ActiveConfiguration;
 
 void ConfigurationInit(void);
-void ConfigurationSetById(ConfigurationEnum Configuration);
+void ConfigurationSetById(ConfigurationEnum Configuration, bool appInitRunOnce);
+MapIdType ConfigurationCheckByName(const char *Configuration);
 void ConfigurationGetByName(char *Configuration, uint16_t BufferSize);
-bool ConfigurationSetByName(const char *Configuration);
+bool ConfigurationByNameIsValid(const char *Configuration);
+bool ConfigurationSetByName(const char *Configuration, bool appInitRunOnce);
 void ConfigurationGetList(char *ConfigurationList, uint16_t BufferSize);
 
 #endif /* STANDARDS_H_ */
